@@ -52,13 +52,19 @@ def read_image_file(file_name, n_objects=None, offset=0):
 
 
 if __name__ == '__main__':
-    batch_size = 30
-    offset = 10
-    image_index = 15
-
+    batch_size, offset = 100, 15
     labels = read_label_file(LABELS_TRAIN, batch_size, offset)
     images = read_image_file(IMAGES_TRAIN, batch_size, offset)
 
-    plt.imshow(images[image_index], cmap='gray')
-    plt.title('label = {}'.format(labels[image_index]))
+    n, m = 10, 10
+    f, axarr = plt.subplots(n, m, figsize=(6, 6))
+    for i in range(n):
+        for j in range(m):
+            axarr[i, j].imshow(images[m * i + j], cmap='gray_r')
+            # axarr[i, j].set_title(labels[m * i + j])
+            axarr[i, j].tick_params(
+                axis='both', which='both',
+                bottom='off', top='off', right='off', left='off',
+                labelbottom='off', labelleft='off'
+            )
     plt.show()
