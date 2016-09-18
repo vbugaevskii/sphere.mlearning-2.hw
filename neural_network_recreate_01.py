@@ -127,7 +127,7 @@ class NeuralNetwork:
     def __loss_derivative(self, predicted, observed):
         loss = {
             'MSE': lambda y, t: y - t,
-            'NLL': lambda y, t: t / y
+            'NLL': lambda y, t: - t / y
         }
         return loss[self.loss_function](predicted, observed)
 
