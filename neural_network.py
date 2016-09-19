@@ -173,18 +173,54 @@ class NeuralNetwork:
             N = self.layers[idx + 1].n_neurons
             self.weights.append(np.random.rand(M, N) - .5)
 
-    def __split_sample(self, X, Y, test_size):
-        shuffle = random.sample(range(X.shape[0]), X.shape[0])
-        X, Y = X[shuffle], Y[shuffle]
-        border = X.shape[0] * test_size
-        return X[border:], Y[border:], X[:border], Y[:border]
+    def __epoch(self, X, Y, batch_size):
+        if batch_size is None:
+            batches = [range(X.shape[0])]
+        else:
+            rand_sample = random.sample(range(X.shape[0]), X.shape[0])
+            batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
+        for batch in batches:
+            self.train_on_batch(X, Y, batch)
 
-    def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65), eps=0):
+    def __batch_init(self, X, Y, batch):
+        n_objects = len(batch)
+        self.layers[0] = InputLayer(X[batch].reshape(n_objects, X.shape[1]), self.input_bias)
+        self.y = Y[batch].reshape(n_objects, Y.shape[1]) if Y is not None else None
+
+        for layer in self.layers:
+            layer.n_objects = n_objects
+
+    def train_on_batch(self, X, Y, batch):
+        self.__batch_init(X, Y, batch)
+        predicted = self.__forward_step()
+        self.__backward_step()
+        # self.__gradient_residential(predicted)
+        self.__update_weights()
+
+    def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65)):
         self.softmax = self.layers[-1].__class__.__name__ == 'SoftmaxLayer'
         self.__prepare_weights(X, Y)
 
-        self.error = []
+        self.error_train = []
+        self.learning_rate = learning_params[0]
+
         for epoch in range(n_epoch):
+            # FIRST VARIANT OF GRADIENT DESCENT
+            # """
+            if (epoch + 1) % 50 == 0:
+                self.learning_rate *= learning_params[1]
+
+            self.__epoch(X, Y, batch_size)
+            error_ = self.__criteria(self.predict(X), Y)
+
+            self.error_train.append(error_)
+
+            print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(error_), \
+                'learning_rate = {}'.format(self.learning_rate),
+            # """
+
+            # SECOND VARIANT OF GRADIENT DESCENT
+            """
             self.learning_rate = learning_params[0]
             weights_prev = self.weights[:]
 
@@ -193,7 +229,7 @@ class NeuralNetwork:
 
             if epoch > 0:
                 for i in range(learning_params[2] + 1):
-                    if error_ > self.error[-1] + eps:
+                    if error_ > self.error_train[-1]:
                         self.learning_rate *= learning_params[1]
                         self.weights = weights_prev[:]
                     else:
@@ -202,8 +238,10 @@ class NeuralNetwork:
                     self.__epoch(X, Y, batch_size)
                     error_ = self.__criteria(self.predict(X), Y)
 
-                print '\r', epoch, self.learning_rate, i,
-            self.error.append(error_)
+                print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(error_), \
+                    'learning_rate = {}'.format(self.learning_rate), 'iteration = {}'.format(i),
+            self.error_train.append(error_)
+            # """
 
     def predict(self, X, batch_size=25):
         sample = range(X.shape[0])
@@ -218,46 +256,32 @@ class NeuralNetwork:
             predicted = predicted_batch if predicted is None else np.r_[predicted, predicted_batch]
         return predicted
 
-    def __batch_init(self, X, Y, batch):
-        n_objects = len(batch)
-        self.layers[0] = InputLayer(X[batch].reshape(n_objects, X.shape[1]), self.input_bias)
-        self.y = Y[batch].reshape(n_objects, Y.shape[1]) if Y is not None else None
-
-        for layer in self.layers:
-            layer.n_objects = n_objects
-
     def __gradient_residential(self, predicted):
         eps = 1e-3
-        J_before = self.__criteria(predicted=predicted, observed=self.y)
+        tol = eps * self.alpha
+
         for idx, layer in enumerate(self.layers[:-1]):
             for i in range(self.weights[idx].shape[0]):
                 for j in range(self.weights[idx].shape[1]):
-                    self.weights[idx][i, j] += eps
+                    self.weights[idx][i, j] -= eps
+                    J_before = self.__criteria(predicted=self.__forward_step(), observed=self.y)
+
+                    self.weights[idx][i, j] += 2 * eps
                     J_after = self.__criteria(predicted=self.__forward_step(), observed=self.y)
-                    deriv_residual = (J_after - J_before) / eps
-                    deriv_analytic = np.mean(layer.derivatives[:, i, j])
+
+                    deriv_residual = (J_after - J_before) / (2 * eps)
+                    deriv_analytic = layer.derivatives + self.__regular_derivative(self.weights[idx])
+                    deriv_analytic = np.mean(deriv_analytic[:, i, j])
+
                     if np.isclose(deriv_residual, deriv_analytic, atol=eps) == False:
-                        print deriv_residual
-                        print deriv_analytic
+                        print '\n'
+                        print 'Residual derivative = {}'.fromat(deriv_residual)
+                        print 'Analytic derivative = {}'.format(deriv_analytic)
+                        print abs(deriv_residual - deriv_analytic)
                         raise Exception('Wrong derivatives!')
+
                     self.weights[idx][i, j] -= eps
         self.__forward_step()
-
-    def train_on_batch(self, X, Y, batch):
-        self.__batch_init(X, Y, batch)
-        predicted = self.__forward_step()
-        self.__backward_step()
-        # self.__gradient_residential(predicted)
-        self.__update_weights()
-
-    def __epoch(self, X, Y, batch_size):
-        if batch_size is None:
-            batches = [range(X.shape[0])]
-        else:
-            rand_sample = random.sample(range(X.shape[0]), X.shape[0])
-            batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
-        for batch in batches:
-            self.train_on_batch(X, Y, batch)
 
 
 if __name__ == '__main__':
