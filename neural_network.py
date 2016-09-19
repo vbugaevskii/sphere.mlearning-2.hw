@@ -275,7 +275,7 @@ class NeuralNetwork:
 
                     if np.isclose(deriv_residual, deriv_analytic, atol=eps) == False:
                         print '\n'
-                        print 'Residual derivative = {}'.fromat(deriv_residual)
+                        print 'Residual derivative = {}'.format(deriv_residual)
                         print 'Analytic derivative = {}'.format(deriv_analytic)
                         print abs(deriv_residual - deriv_analytic)
                         raise Exception('Wrong derivatives!')
