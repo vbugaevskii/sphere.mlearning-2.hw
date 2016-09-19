@@ -235,8 +235,10 @@ class NeuralNetwork:
                     self.weights[idx][i, j] += eps
                     J_after = self.__criteria(predicted=self.__forward_step(), observed=self.y)
                     deriv_residual = (J_after - J_before) / eps
-                    deriv_analytic = layer.derivatives[0][i, j]
+                    deriv_analytic = np.mean(layer.derivatives[:, i, j])
                     if np.isclose(deriv_residual, deriv_analytic, atol=eps) == False:
+                        print deriv_residual
+                        print deriv_analytic
                         raise Exception('Wrong derivatives!')
                     self.weights[idx][i, j] -= eps
         self.__forward_step()
@@ -245,7 +247,7 @@ class NeuralNetwork:
         self.__batch_init(X, Y, batch)
         predicted = self.__forward_step()
         self.__backward_step()
-        self.__gradient_residential(predicted)
+        # self.__gradient_residential(predicted)
         self.__update_weights()
 
     def __epoch(self, X, Y, batch_size):
@@ -259,7 +261,7 @@ class NeuralNetwork:
 
 
 if __name__ == '__main__':
-    multip = 100
+    multip = 1
     dfX = np.array([[.05, .10]] * multip)
     dfY = np.array([[.01, .99]] * multip)
 
