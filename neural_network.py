@@ -256,7 +256,7 @@ class NeuralNetwork:
             predicted = predicted_batch if predicted is None else np.r_[predicted, predicted_batch]
         return predicted
 
-    def __gradient_residential(self, predicted):
+    def __gradient_check(self, predicted):
         eps = 1e-3
         tol = eps * self.alpha
 
