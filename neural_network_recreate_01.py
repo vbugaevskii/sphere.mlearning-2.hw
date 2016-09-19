@@ -111,7 +111,7 @@ class NeuralNetwork:
 
     def __criteria(self, predicted, observed):
         loss = {
-            'MSE': lambda y, t: np.mean(np.sum(np.square(y - t), axis=1)),
+            'MSE': lambda y, t: .5 * np.mean(np.sum(np.square(y - t), axis=1)),
             'NLL': lambda y, t: np.mean(-np.sum(t * np.log(y), axis=1)),
         }
 
@@ -226,10 +226,26 @@ class NeuralNetwork:
         for layer in self.layers:
             layer.n_objects = n_objects
 
+    def __gradient_residential(self, predicted):
+        eps = 1e-3
+        J_before = self.__criteria(predicted=predicted, observed=self.y)
+        for idx, layer in enumerate(self.layers[:-1]):
+            for i in range(self.weights[idx].shape[0]):
+                for j in range(self.weights[idx].shape[1]):
+                    self.weights[idx][i, j] += eps
+                    J_after = self.__criteria(predicted=self.__forward_step(), observed=self.y)
+                    deriv_residual = (J_after - J_before) / eps
+                    deriv_analytic = layer.derivatives[0][i, j]
+                    if np.isclose(deriv_residual, deriv_analytic, atol=eps) == False:
+                        raise Exception('Wrong derivatives!')
+                    self.weights[idx][i, j] -= eps
+        self.__forward_step()
+
     def train_on_batch(self, X, Y, batch):
         self.__batch_init(X, Y, batch)
-        self.__forward_step()
+        predicted = self.__forward_step()
         self.__backward_step()
+        self.__gradient_residential(predicted)
         self.__update_weights()
 
     def __epoch(self, X, Y, batch_size):
@@ -250,8 +266,7 @@ if __name__ == '__main__':
     nn = NeuralNetwork(layers=[
         SigmoidLayer(2, bias=True),
         SigmoidLayer(2, bias=False),
-    ], input_bias=True, loss_function='MSE', learning_rate=.5, regular_type='l2', alpha=.001)
+    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=.001)
 
-    nn.fit(dfX, dfY, n_epoch=150, batch_size=15)
+    nn.fit(dfX, dfY, n_epoch=10, batch_size=None)
     r = nn.predict(dfX, batch_size=10)
-    print r
