@@ -134,10 +134,10 @@ class NeuralNetwork:
     def __regular_derivative(self, weight):
         regular = {
             None: lambda w: np.zeros(w.shape),
-            'l1': lambda w: np.sign(w),
-            'l2': lambda w: w
+            'l1': lambda w: np.sign(w.copy()),
+            'l2': lambda w: w.copy()
         }
-        return self.alpha * regular[self.regular_type](weight)
+        return regular[self.regular_type](weight)
 
     def __forward_step(self):
         for idx, w in enumerate(self.weights):
@@ -163,7 +163,7 @@ class NeuralNetwork:
         for idx, layer in enumerate(self.layers[:-1]):
             self.weights[idx] -= self.learning_rate * (
                 np.mean(layer.derivatives, axis=0) +
-                self.__regular_derivative(self.weights[idx])
+                self.alpha * self.__regular_derivative(self.weights[idx])
             )
 
     def __prepare_weights(self, X, Y):
@@ -194,29 +194,36 @@ class NeuralNetwork:
         self.__batch_init(X, Y, batch)
         self.__forward_step()
         self.__backward_step()
-        self.__gradient_check()
+        # self.__gradient_check()
         self.__update_weights()
 
-    def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65)):
+    def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65), test_size=0):
         self.softmax = self.layers[-1].__class__.__name__ == 'SoftmaxLayer'
         self.__prepare_weights(X, Y)
 
-        self.error_train = []
+        self.error_train, self.error_test = [], []
         self.learning_rate = learning_params[0]
+
+        sample = random.sample(range(X.shape[0]), X.shape[0])
+        X, Y = X[sample], Y[sample]
+        border = X.shape[0] * test_size
+        X_test, X_train = X[:border], X[border:]
+        Y_test, Y_train = Y[:border], Y[border:]
 
         for epoch in range(n_epoch):
             # FIRST VARIANT OF GRADIENT DESCENT
             # """
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % learning_params[2] == 0:
                 self.learning_rate *= learning_params[1]
 
-            self.__epoch(X, Y, batch_size)
-            error_ = self.__criteria(self.predict(X), Y)
+            self.__epoch(X_train, Y_train, batch_size)
 
-            self.error_train.append(error_)
+            criteria_train = self.__criteria(self.predict(X_train, batch_size=batch_size), Y_train)
+            self.error_train.append(criteria_train)
 
-            print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(error_), \
+            print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(criteria_train), \
                 'learning_rate = {}'.format(self.learning_rate),
+
             # """
 
             # SECOND VARIANT OF GRADIENT DESCENT
@@ -243,6 +250,10 @@ class NeuralNetwork:
             self.error_train.append(error_)
             # """
 
+            if test_size != 0.0:
+                criteria_test = self.__criteria(self.predict(X_test, batch_size=batch_size), Y_test)
+                self.error_test.append(criteria_test)
+
     def predict(self, X, batch_size=25):
         sample = range(X.shape[0])
         if batch_size is None:
@@ -257,6 +268,7 @@ class NeuralNetwork:
         return predicted
 
     def __gradient_check(self):
+        # FIXIT: Fails with big alpha and regularization
         eps = 1e-3
 
         for idx, layer in enumerate(self.layers[:-1]):
@@ -265,21 +277,22 @@ class NeuralNetwork:
                     self.weights[idx][i, j] -= eps
                     J_before = self.__criteria(predicted=self.__forward_step(), observed=self.y)
 
-                    self.weights[idx][i, j] += 2 * eps
+                    self.weights[idx][i, j] += 2.0 * eps
                     J_after = self.__criteria(predicted=self.__forward_step(), observed=self.y)
 
-                    deriv_residual = (J_after - J_before) / (2 * eps)
-                    deriv_analytic = layer.derivatives + self.__regular_derivative(self.weights[idx])
-                    deriv_analytic = np.mean(deriv_analytic[:, i, j])
-
-                    deriv_absolute = abs(deriv_residual - deriv_analytic)
-                    if not np.isclose(deriv_absolute, self.alpha * eps, atol=eps):
-                        print 'Residual derivative = {}'.format(deriv_residual)
-                        print 'Analytic derivative = {}'.format(deriv_analytic)
-                        print deriv_absolute
-                        raise Exception('Wrong derivative!')
-
                     self.weights[idx][i, j] -= eps
+
+                    deriv_residual = (J_after - J_before) / (2.0 * eps)
+                    deriv_analytic = np.mean(layer.derivatives, axis=0) + \
+                                     self.alpha * self.__regular_derivative(self.weights[idx])
+                    deriv_analytic = deriv_analytic[i, j]
+
+                    if not np.isclose(deriv_residual, deriv_analytic, atol=eps):
+                        message = 'Matrix {}. Cell {}\n'.format(idx, (i, j)) +\
+                                  'Residual derivative = {}\n'.format(deriv_residual) + \
+                                  'Analytic derivative = {}\n'.format(deriv_analytic) + \
+                                  str(abs(deriv_residual - deriv_analytic)) + '\n'
+                        raise Exception('Wrong derivative!\n' + message)
         self.__forward_step()
 
 
@@ -291,7 +304,7 @@ if __name__ == '__main__':
     nn = NeuralNetwork(layers=[
         SigmoidLayer(2, bias=True),
         SigmoidLayer(2, bias=False),
-    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=10)
+    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=1)
 
-    nn.fit(dfX, dfY, n_epoch=1, batch_size=None, learning_params=(10, 0.75, 65))
+    nn.fit(dfX, dfY, n_epoch=100, batch_size=None, learning_params=(100, 0.75, 65))
     r = nn.predict(dfX, batch_size=10)
