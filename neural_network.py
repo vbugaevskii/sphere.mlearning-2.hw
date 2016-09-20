@@ -192,9 +192,9 @@ class NeuralNetwork:
 
     def train_on_batch(self, X, Y, batch):
         self.__batch_init(X, Y, batch)
-        predicted = self.__forward_step()
+        self.__forward_step()
         self.__backward_step()
-        # self.__gradient_residential(predicted)
+        self.__gradient_check()
         self.__update_weights()
 
     def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65)):
@@ -256,9 +256,8 @@ class NeuralNetwork:
             predicted = predicted_batch if predicted is None else np.r_[predicted, predicted_batch]
         return predicted
 
-    def __gradient_check(self, predicted):
+    def __gradient_check(self):
         eps = 1e-3
-        tol = eps * self.alpha
 
         for idx, layer in enumerate(self.layers[:-1]):
             for i in range(self.weights[idx].shape[0]):
@@ -273,26 +272,26 @@ class NeuralNetwork:
                     deriv_analytic = layer.derivatives + self.__regular_derivative(self.weights[idx])
                     deriv_analytic = np.mean(deriv_analytic[:, i, j])
 
-                    if np.isclose(deriv_residual, deriv_analytic, atol=eps) == False:
-                        print '\n'
+                    deriv_absolute = abs(deriv_residual - deriv_analytic)
+                    if not np.isclose(deriv_absolute, self.alpha * eps, atol=eps):
                         print 'Residual derivative = {}'.format(deriv_residual)
                         print 'Analytic derivative = {}'.format(deriv_analytic)
-                        print abs(deriv_residual - deriv_analytic)
-                        raise Exception('Wrong derivatives!')
+                        print deriv_absolute
+                        raise Exception('Wrong derivative!')
 
                     self.weights[idx][i, j] -= eps
         self.__forward_step()
 
 
 if __name__ == '__main__':
-    multip = 1
+    multip = 10
     dfX = np.array([[.05, .10]] * multip)
     dfY = np.array([[.01, .99]] * multip)
 
     nn = NeuralNetwork(layers=[
         SigmoidLayer(2, bias=True),
         SigmoidLayer(2, bias=False),
-    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=.001)
+    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=10)
 
-    nn.fit(dfX, dfY, n_epoch=10, batch_size=None)
+    nn.fit(dfX, dfY, n_epoch=1, batch_size=None, learning_params=(10, 0.75, 65))
     r = nn.predict(dfX, batch_size=10)
