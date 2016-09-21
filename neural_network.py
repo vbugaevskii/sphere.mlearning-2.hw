@@ -68,23 +68,9 @@ class IdentityLayer(SequentialLayer):
         return np.ones(values_out.shape)
 
 
-class InputLayer(SequentialLayer):
-    def __init__(self, X, bias):
-        SequentialLayer.__init__(self, X.shape[1], bias)
-        self.n_objects = X.shape[0]
-        self.values_in = None
-        self.values_out = X
-
-    def _activation(self, values_in):
-        return values_in
-
-    def _activation_derivative(self, values_in, values_out):
-        return np.ones(values_out.shape)
-
-
 class SoftmaxLayer(NeuralLayer):
-    def _activation(self, x):
-        res = np.exp(x)
+    def _activation(self, values_in):
+        res = np.exp(values_in)
         return res / np.sum(res, axis=1).reshape(res.shape[0], 1)
 
     def forward(self, values_in, weights):
@@ -98,6 +84,36 @@ class SoftmaxLayer(NeuralLayer):
             self.derivatives = None
         else:
             raise
+
+
+class ReluLayer(SequentialLayer):
+    def _activation(self, values_in):
+        return np.maximum(values_in, 0)
+
+    def _activation_derivative(self, values_in, values_out):
+        return (values_out > 0).astype(int)
+
+
+class SoftplusLayer(SequentialLayer):
+    def _activation(self, values_in):
+        return np.log(1.0 + np.exp(values_in))
+
+    def _activation_derivative(self, values_in, values_out):
+        return 1.0 / (1.0 + np.exp(-values_in))
+
+
+class InputLayer(SequentialLayer):
+    def __init__(self, X, bias):
+        SequentialLayer.__init__(self, X.shape[1], bias)
+        self.n_objects = X.shape[0]
+        self.values_in = None
+        self.values_out = X
+
+    def _activation(self, values_in):
+        return values_in
+
+    def _activation_derivative(self, values_in, values_out):
+        return np.ones(values_out.shape)
 
 class NeuralNetwork:
     def __init__(self, layers, input_bias=True,
@@ -212,7 +228,7 @@ class NeuralNetwork:
 
         for epoch in range(n_epoch):
             # FIRST VARIANT OF GRADIENT DESCENT
-            # """
+
             if (epoch + 1) % learning_params[2] == 0:
                 self.learning_rate *= learning_params[1]
 
@@ -223,32 +239,6 @@ class NeuralNetwork:
 
             print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(criteria_train), \
                 'learning_rate = {}'.format(self.learning_rate),
-
-            # """
-
-            # SECOND VARIANT OF GRADIENT DESCENT
-            """
-            self.learning_rate = learning_params[0]
-            weights_prev = self.weights[:]
-
-            self.__epoch(X, Y, batch_size)
-            error_ = self.__criteria(self.predict(X), Y)
-
-            if epoch > 0:
-                for i in range(learning_params[2] + 1):
-                    if error_ > self.error_train[-1]:
-                        self.learning_rate *= learning_params[1]
-                        self.weights = weights_prev[:]
-                    else:
-                        break
-
-                    self.__epoch(X, Y, batch_size)
-                    error_ = self.__criteria(self.predict(X), Y)
-
-                print '\r', 'epoch = {}'.format(epoch), 'error = {}'.format(error_), \
-                    'learning_rate = {}'.format(self.learning_rate), 'iteration = {}'.format(i),
-            self.error_train.append(error_)
-            # """
 
             if test_size != 0.0:
                 criteria_test = self.__criteria(self.predict(X_test, batch_size=batch_size), Y_test)
@@ -268,8 +258,9 @@ class NeuralNetwork:
         return predicted
 
     def __gradient_check(self):
-        # FIXIT: Fails with big alpha and regularization
         eps = 1e-3
+
+        gradient_residual, gradient_analytic = [], []
 
         for idx, layer in enumerate(self.layers[:-1]):
             for i in range(self.weights[idx].shape[0]):
@@ -287,12 +278,28 @@ class NeuralNetwork:
                                      self.alpha * self.__regular_derivative(self.weights[idx])
                     deriv_analytic = deriv_analytic[i, j]
 
+                    gradient_residual.append(deriv_residual)
+                    gradient_analytic.append(deriv_analytic)
+
                     if not np.isclose(deriv_residual, deriv_analytic, atol=eps):
                         message = 'Matrix {}. Cell {}\n'.format(idx, (i, j)) +\
                                   'Residual derivative = {}\n'.format(deriv_residual) + \
                                   'Analytic derivative = {}\n'.format(deriv_analytic) + \
                                   str(abs(deriv_residual - deriv_analytic)) + '\n'
                         raise Exception('Wrong derivative!\n' + message)
+                        # print 'raised'
+
+        def norm(x):
+            return np.sum(np.square(gradient_analytic))
+
+        gradient_analytic = np.asarray(gradient_analytic)
+        gradient_residual = np.asarray(gradient_residual)
+
+        # print '\nGradient analytic (norm^2): ', norm(gradient_analytic)
+        # print 'Gradient residual (norm^2): ', norm(gradient_residual)
+        # print norm(gradient_analytic - gradient_residual) / norm(gradient_analytic + gradient_residual)
+        # print '-'*40
+
         self.__forward_step()
 
 
@@ -304,7 +311,7 @@ if __name__ == '__main__':
     nn = NeuralNetwork(layers=[
         SigmoidLayer(2, bias=True),
         SigmoidLayer(2, bias=False),
-    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=1)
+    ], input_bias=True, loss_function='MSE', regular_type='l2', alpha=10)
 
-    nn.fit(dfX, dfY, n_epoch=100, batch_size=None, learning_params=(100, 0.75, 65))
+    nn.fit(dfX, dfY, n_epoch=10, batch_size=None, learning_params=(0.1, 0.75, 65))
     r = nn.predict(dfX, batch_size=10)
