@@ -195,6 +195,7 @@ class NeuralNetwork:
         else:
             rand_sample = random.sample(range(X.shape[0]), X.shape[0])
             batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
+            
         for batch in batches:
             self.train_on_batch(X, Y, batch)
 
