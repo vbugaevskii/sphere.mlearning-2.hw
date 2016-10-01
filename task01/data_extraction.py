@@ -12,9 +12,12 @@ LABELS_TRAIN = 'train-labels.idx1-ubyte'
 
 
 def read_label_file(file_name, n_objects=None, offset=0):
+    magic = 2049
+
     with open(PATH + file_name, 'rb') as f:
         buffer = array.array('I', f.read(8))
-        buffer.byteswap()
+        if buffer[0] != magic:
+            buffer.byteswap()
         magic, n_items = buffer
 
         n_size = n_objects if n_objects else n_items - offset
@@ -26,13 +29,17 @@ def read_label_file(file_name, n_objects=None, offset=0):
         f.seek(offset, 1)
         buffer = f.read(n_size)
         labels = array.array('B', buffer).tolist()
+
     return labels
 
 
 def read_image_file(file_name, n_objects=None, offset=0):
+    magic = 2051
+    
     with open(PATH + file_name, 'rb') as f:
         buffer = array.array('I', f.read(16))
-        buffer.byteswap()
+        if buffer[0] != magic:
+            buffer.byteswap()
         magic, n_items, n_rows, n_cols = buffer
 
         n_size = n_objects if n_objects else n_items - offset
