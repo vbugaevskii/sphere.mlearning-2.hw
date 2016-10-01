@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import array
 
 PATH = './data/'
 
@@ -27,7 +28,7 @@ def read_label_file(file_name, n_objects=None, offset=0):
 
         f.seek(offset, 1)
         buffer = f.read(n_size)
-        labels = [string_to_int(buffer[i]) for i in range(n_size)]
+        labels = array.array('B', buffer).tolist()
     return labels
 
 
@@ -45,9 +46,8 @@ def read_image_file(file_name, n_objects=None, offset=0):
         f.seek(offset * n_cols * n_rows, 1)
 
         buffer = f.read(n_size * n_cols * n_rows)
-        images = [np.asarray(
-            [[string_to_int(buffer[i + n_cols * row + col]) for col in range(n_cols)] for row in range(n_rows)]
-        ) for i in range(0, n_size * n_cols * n_rows, n_cols * n_rows)]
+        images = [np.asarray(array.array('B', buffer[i:i + n_cols * n_rows])).reshape((n_cols, n_rows))
+                  for i in range(0, n_size * n_cols * n_rows, n_cols * n_rows)]
 
     return images
 
