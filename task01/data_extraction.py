@@ -11,14 +11,11 @@ IMAGES_TRAIN = 'train-images.idx3-ubyte'
 LABELS_TRAIN = 'train-labels.idx1-ubyte'
 
 
-def string_to_int(str):
-    return int(str.encode('hex'), 16)
-
-
 def read_label_file(file_name, n_objects=None, offset=0):
     with open(PATH + file_name, 'rb') as f:
-        buffer = f.read(8)
-        magic, n_items = map(string_to_int, [buffer[i:i + 4] for i in range(0, len(buffer), 4)])
+        buffer = array.array('I', f.read(8))
+        buffer.byteswap()
+        magic, n_items = buffer
 
         n_size = n_objects if n_objects else n_items - offset
         if offset >= n_items:
@@ -34,8 +31,9 @@ def read_label_file(file_name, n_objects=None, offset=0):
 
 def read_image_file(file_name, n_objects=None, offset=0):
     with open(PATH + file_name, 'rb') as f:
-        buffer = f.read(16)
-        magic, n_items, n_rows, n_cols = map(string_to_int, [buffer[i:i + 4] for i in range(0, len(buffer), 4)])
+        buffer = array.array('I', f.read(16))
+        buffer.byteswap()
+        magic, n_items, n_rows, n_cols = buffer
 
         n_size = n_objects if n_objects else n_items - offset
         if offset >= n_items:
