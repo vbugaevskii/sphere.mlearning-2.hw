@@ -27,15 +27,14 @@ def read_label_file(file_name, n_objects=None, offset=0):
             n_size = n_items - offset
 
         f.seek(offset, 1)
-        buffer = f.read(n_size)
-        labels = array.array('B', buffer).tolist()
+        labels = array.array('B', f.read(n_size)).tolist()
 
     return labels
 
 
 def read_image_file(file_name, n_objects=None, offset=0):
     magic = 2051
-    
+
     with open(PATH + file_name, 'rb') as f:
         buffer = array.array('I', f.read(16))
         if buffer[0] != magic:
@@ -49,7 +48,6 @@ def read_image_file(file_name, n_objects=None, offset=0):
             n_size = n_items - offset
 
         f.seek(offset * n_cols * n_rows, 1)
-
         buffer = f.read(n_size * n_cols * n_rows)
         images = [np.asarray(array.array('B', buffer[i:i + n_cols * n_rows])).reshape((n_cols, n_rows))
                   for i in range(0, n_size * n_cols * n_rows, n_cols * n_rows)]
