@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import random
-from math import ceil
 from abc import ABCMeta, abstractmethod
 
 
@@ -195,7 +196,7 @@ class NeuralNetwork:
         else:
             rand_sample = random.sample(range(X.shape[0]), X.shape[0])
             batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
-            
+
         for batch in batches:
             self.train_on_batch(X, Y, batch)
 
@@ -228,8 +229,6 @@ class NeuralNetwork:
         Y_test, Y_train = Y[:border], Y[border:]
 
         for epoch in range(n_epoch):
-            # FIRST VARIANT OF GRADIENT DESCENT
-
             if (epoch + 1) % learning_params[2] == 0:
                 self.learning_rate *= learning_params[1]
 
@@ -244,6 +243,8 @@ class NeuralNetwork:
             if test_size != 0.0:
                 criteria_test = self.__criteria(self.predict(X_test, batch_size=batch_size), Y_test)
                 self.error_test.append(criteria_test)
+
+        print ''
 
     def predict(self, X, batch_size=25):
         sample = range(X.shape[0])
