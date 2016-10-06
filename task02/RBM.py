@@ -3,6 +3,8 @@
 import numpy as np
 import random
 from abc import ABCMeta, abstractmethod
+import sys
+import warnings
 
 
 def sigmoid(x):
@@ -48,7 +50,8 @@ class BernoulliLayer(NeuronLayer):
 
 
 class GaussianLayer(NeuronLayer):
-    # TODO: implement later
+    # Suppose that sigma is static and equals to 1.0
+    # That really simplifies implementation of gauss layers
     pass
 
 
@@ -131,8 +134,15 @@ class RBM:
 
         self.error_train, self.error_test = [], []
         for epoch in range(n_epochs):
-            # if (epoch + 1) % 20 == 0:
-            #     self.learning_rate *= .1
+            if epoch + 1 < 35:
+                self.learning_rate = .5
+            elif epoch + 1 < 75:
+                self.learning_rate = .05
+            else:
+                self.learning_rate = .01
+
+            if self.learning_rate != learning_rate and epoch == 0:
+                warnings.warn("Check the code! You didn't set the learning rate!\n")
 
             self.__epoch(X_train, batch_size)
             self.error_train.append(self.criteria(X_train))
@@ -142,6 +152,7 @@ class RBM:
 
             print '\r', 'epoch = {};'.format(epoch), 'criteria = {};'.format(self.error_train[-1]), \
                 'learning_rate = {}'.format(self.learning_rate),
+            sys.stdout.flush()
         print ''
 
     def predict_proba(self, X, batch_size=None):
@@ -179,11 +190,11 @@ class RBM:
 
         self.weights = np.random.normal(0, .01, (n_visible, n_hidden))
 
-        print 'Initialisation...'
-        print 'weights:\n', self.weights
-        print 'bias (visible):\n', self.layers[0].bias
-        print 'bias (hidden):\n',  self.layers[1].bias
-        print ''
+        # print 'Initialisation...'
+        # print 'weights:\n', self.weights
+        # print 'bias (visible):\n', self.layers[0].bias
+        # print 'bias (hidden):\n',  self.layers[1].bias
+        # print ''
 
     def __criteria_energy(self, visible):
         def calculate_energy(v, h):
