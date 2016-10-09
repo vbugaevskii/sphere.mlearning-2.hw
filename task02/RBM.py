@@ -134,12 +134,13 @@ class RBM:
 
         self.error_train, self.error_test = [], []
         for epoch in range(n_epochs):
-            if epoch + 1 < 35:
-                self.learning_rate = .5
-            elif epoch + 1 < 75:
-                self.learning_rate = .05
-            else:
-                self.learning_rate = .01
+            # use it for MNIST
+            # if epoch + 1 < 35:
+            #     self.learning_rate = .5
+            # elif epoch + 1 < 75:
+            #     self.learning_rate = .05
+            # else:
+            #     self.learning_rate = .01
 
             if self.learning_rate != learning_rate and epoch == 0:
                 warnings.warn("Check the code! You didn't set the learning rate!\n")
