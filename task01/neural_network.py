@@ -3,6 +3,7 @@
 import numpy as np
 import random
 from abc import ABCMeta, abstractmethod
+import warnings
 
 
 class NeuralLayer:
@@ -11,7 +12,7 @@ class NeuralLayer:
     def __init__(self, n_neurons, bias=True):
         self.n_neurons = n_neurons
         self.n_objects = None
-        self.bias = bias
+        self.bias_use = bias
 
     @abstractmethod
     def forward(self, values_in, weights):
@@ -32,6 +33,7 @@ class SequentialLayer(NeuralLayer):
     def forward(self, values_in, weights):
         self.values_in = np.asarray(np.asmatrix(values_in) * weights)
         self.values_out = self._activation(self.values_in)
+        self.bias = np.ones(self.n_objects) if self.bias_use else np.zeros(self.n_objects)
 
     @abstractmethod
     def _activation_derivative(self, values_in, values_out):
@@ -44,9 +46,8 @@ class SequentialLayer(NeuralLayer):
             self.deltas = np.asarray(np.c_[self.deltas, np.zeros(self.deltas.shape[0])])
             self.derivatives = None
         else:
-            bias = np.ones(self.n_objects) if self.bias else np.zeros(self.n_objects)
-            self.deltas = np.c_[derivative, bias] * np.asarray(np.asmatrix(errors_in) * np.asmatrix(weights).T)
-            values = np.c_[self.values_out, bias]
+            self.deltas = np.c_[derivative, self.bias] * np.asarray(np.asmatrix(errors_in) * np.asmatrix(weights).T)
+            values = np.c_[self.values_out, self.bias]
             self.derivatives = np.asarray([
                 np.asarray(np.asmatrix(values[i]).T * np.asmatrix(errors_in[i]))
                 for i in range(self.n_objects)
@@ -106,9 +107,10 @@ class SoftplusLayer(SequentialLayer):
 class InputLayer(SequentialLayer):
     def __init__(self, X, bias):
         SequentialLayer.__init__(self, X.shape[1], bias)
-        self.n_objects = X.shape[0]
         self.values_in = None
         self.values_out = X
+        self.n_objects = X.shape[0]
+        self.bias = np.ones(self.n_objects) if bias else np.zeros(self.n_objects)
 
     def _activation(self, values_in):
         return values_in
@@ -125,6 +127,8 @@ class NeuralNetwork:
         self.regular_type = regular_type
         self.alpha = alpha
         self.input_bias = input_bias
+
+        self.weights = None
 
     def __criteria(self, predicted, observed):
         loss = {
@@ -158,9 +162,7 @@ class NeuralNetwork:
 
     def __forward_step(self):
         for idx, w in enumerate(self.weights):
-            n_objects = self.layers[idx].n_objects
-            bias = np.ones(n_objects) if self.layers[idx].bias else np.zeros(n_objects)
-            values_in = np.c_[self.layers[idx].values_out, bias]
+            values_in = np.c_[self.layers[idx].values_out, self.layers[idx].bias]
             self.layers[idx + 1].forward(values_in, w)
         return self.layers[-1].values_out
 
@@ -183,7 +185,7 @@ class NeuralNetwork:
                 self.alpha * self.__regular_derivative(self.weights[idx])
             )
 
-    def __prepare_weights(self, X, Y):
+    def set_random_weights(self, X):
         self.weights = []
         for idx in range(len(self.layers) - 1):
             M = (self.layers[idx].n_neurons if idx else X.shape[1]) + 1
@@ -216,8 +218,13 @@ class NeuralNetwork:
         self.__update_weights()
 
     def fit(self, X, Y, n_epoch=5, batch_size=25, learning_params=(0.5, 0.75, 65), test_size=0):
+        if self.weights is not None:
+            warnings.warn("You mast have forgotten to prepare weights!\n See the function: set_random_weights(X)\n")
+        print '',
+
         self.softmax = self.layers[-1].__class__.__name__ == 'SoftmaxLayer'
-        self.__prepare_weights(X, Y)
+        if (self.weights is None) or (len(self.weights) != len(self.layers) - 1):
+            self.set_random_weights(X)
 
         self.error_train, self.error_test = [], []
         self.learning_rate = learning_params[0]
