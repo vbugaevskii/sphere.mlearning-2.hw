@@ -135,12 +135,12 @@ class RBM:
         self.error_train, self.error_test = [], []
         for epoch in range(n_epochs):
             # use it for MNIST
-            # if epoch + 1 < 35:
+            # if epoch + 1 < 17:
+            #     self.learning_rate = .75
+            # elif epoch + 1 < 30:
             #     self.learning_rate = .5
-            # elif epoch + 1 < 75:
-            #     self.learning_rate = .05
             # else:
-            #     self.learning_rate = .01
+            #     self.learning_rate = .5
 
             if self.learning_rate != learning_rate and epoch == 0:
                 warnings.warn("Check the code! You didn't set the learning rate!\n")
@@ -151,8 +151,12 @@ class RBM:
             if test_size > 0.0:
                 self.error_test.append(self.criteria(X_test))
 
-            print '\r', 'epoch = {};'.format(epoch), 'criteria = {};'.format(self.error_train[-1]), \
-                'learning_rate = {}'.format(self.learning_rate),
+            print '\r',\
+                'epoch = {};'.format(epoch),\
+                'learning_rate = {};'.format(self.learning_rate), \
+                'criteria_train = {};'.format(self.error_train[-1]),
+            if test_size > 0.0:
+                print 'criteria_test = {};'.format(self.error_test[-1]),
             sys.stdout.flush()
         print ''
 
@@ -168,7 +172,11 @@ class RBM:
             self.layers[0].values = X[batch]
             proba.append(self.__gibbs_sampling(self.n_gibbs_steps)[0])
 
-        return np.mean(np.asarray(proba).reshape(-1, self.layers[0].n_neurons), axis=0)
+        return np.asarray(proba).reshape(-1, self.layers[0].n_neurons)
+
+    def predict_proba_mean(self, X, batch_size=None):
+        proba = self.predict_proba(X, batch_size)
+        return np.mean(proba, axis=0)
 
     def predict(self, X, batch_size=None):
         if batch_size is None:
@@ -181,6 +189,9 @@ class RBM:
         for batch in batches:
             self.layers[0].values = X[batch]
             predicted_batch = self.__gibbs_sampling(self.n_gibbs_steps)[1]
+            # predicted_batch = X[batch]
+            # for i in range(self.n_gibbs_steps):
+            #     predicted_batch = predicted_batch.dot(np.dot(self.weights, self.weights.T))
             predicted = predicted_batch if predicted is None else np.r_[predicted, predicted_batch]
 
         return predicted
