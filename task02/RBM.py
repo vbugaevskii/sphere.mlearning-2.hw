@@ -54,6 +54,7 @@ class GaussianLayer(NeuronLayer):
     # That really simplifies implementation of gauss layers
     pass
 
+
 class RBM:
     def __init__(self, layers, loss_function):
         if len(layers) != 2:
