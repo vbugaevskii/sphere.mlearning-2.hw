@@ -50,10 +50,9 @@ class BernoulliLayer(NeuronLayer):
 
 
 class GaussianLayer(NeuronLayer):
-    # Suppose that sigma is static and equals to 1.0
+    # Suppose that cov. matrix is static and equals to identity matrix
     # That really simplifies implementation of gauss layers
     pass
-
 
 class RBM:
     def __init__(self, layers, loss_function):
@@ -160,11 +159,11 @@ class RBM:
             sys.stdout.flush()
         print ''
 
-    def predict_proba(self, X, batch_size=None):
+    def predict_proba(self, X, batch_size=None, n_steps=5):
         if batch_size is None:
             batches = [range(X.shape[0])]
         else:
-            rand_sample = random.sample(range(X.shape[0]), X.shape[0])
+            rand_sample = range(X.shape[0])
             batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
 
         proba = []
@@ -172,23 +171,19 @@ class RBM:
             self.layers[0].values = X[batch]
             proba.append(self.__gibbs_sampling(self.n_gibbs_steps)[0])
 
-        return np.asarray(proba).reshape(-1, self.layers[0].n_neurons)
+        return np.mean(np.asarray(proba).reshape(-1, self.layers[0].n_neurons), axis=0)
 
-    def predict_proba_mean(self, X, batch_size=None):
-        proba = self.predict_proba(X, batch_size)
-        return np.mean(proba, axis=0)
-
-    def predict(self, X, batch_size=None):
+    def predict(self, X, batch_size=None, n_steps=5):
         if batch_size is None:
             batches = [range(X.shape[0])]
         else:
-            rand_sample = random.sample(range(X.shape[0]), X.shape[0])
+            rand_sample = range(X.shape[0])
             batches = [rand_sample[i:i + batch_size] for i in range(0, len(rand_sample), batch_size)]
 
         predicted = None
         for batch in batches:
             self.layers[0].values = X[batch]
-            predicted_batch = self.__gibbs_sampling(self.n_gibbs_steps)[1]
+            predicted_batch = self.__gibbs_sampling(n_steps)[1]
             # predicted_batch = X[batch]
             # for i in range(self.n_gibbs_steps):
             #     predicted_batch = predicted_batch.dot(np.dot(self.weights, self.weights.T))
@@ -201,6 +196,7 @@ class RBM:
         n_hidden = self.layers[1].n_neurons
 
         self.weights = np.random.normal(0, .01, (n_visible, n_hidden))
+        # self.weights = np.zeros((n_visible, n_hidden))
 
         # print 'Initialisation...'
         # print 'weights:\n', self.weights
