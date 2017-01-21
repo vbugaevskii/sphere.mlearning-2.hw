@@ -1,4 +1,4 @@
-# Kaggle Contest. Распознавение крыш
+# Kaggle Contest. Распознавание крыш
 
 **Ссылка на соревнование**: [ссылка](https://inclass.kaggle.com/c/techno-sphere-dm2-neural-networks)
 
